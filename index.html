@@ -731,7 +731,7 @@ function equipmentCard(){
     <label class="field"><span>Note (optional: max weight, plates, quirks)</span><input type="text" id="eqnote" placeholder="optional" autocomplete="off"></label>
     <div class="row"><button class="btn" data-act="eqAdd">Add</button></div></section>`;
 }
-const APP_VERSION = "guest 1.1 BETA · 1 Oct 2026";
+const APP_VERSION = "guest 1.2 BETA · 1 Oct 2026";
 const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 /* ============================================================
    GUEST EDITION CORE (profile -> targets, starter plan, program, schedule)
@@ -4628,6 +4628,22 @@ function medsCard(){
    <div class="row"><button class="btn ghost" data-act="gMeds">${m.length?"Edit":"Add medication or supplements"}</button></div>
    <p class="small muted" style="margin:0">Coach only reminds and tracks. It never advises on doses, or on starting or stopping anything. Take that to your doctor.</p></section>`;
 }
+function resetCard(){
+  return `<section class="card" id="resetcard"><h2>Start over</h2>
+    <p class="small muted" style="margin:0">Deletes your profile, plan, food and workout logs, medication and blood results from this phone, then opens the setup again as a brand new user. This can't be undone, so make a backup first if you might want anything back.</p>
+    <div class="row"><button class="btn ghost" style="color:var(--red)" data-act="gReset">Delete my profile and data…</button></div></section>`;
+}
+async function wipeEverything(removeKey){
+  try{ // empty the local database first (works even while it is open), then delete it
+    const I=window.coach.idb; for(const [store,kp] of [["docs","path"],["blobs","id"],["meta","k"]]){ try{ for(const r of await I.all(store)) await I.del(store,r[kp]); }catch(_){} }
+  }catch(_){}
+  try{ const keep=removeKey?null:localStorage.getItem(window.coach&&LSP==="cgb."?"coachgb.cfg":"coachg.cfg"); const cfgKey=LSP==="cgb."?"coachgb.cfg":"coachg.cfg";
+    Object.keys(localStorage).filter(k=>k.startsWith(LSP)||k===cfgKey||k==="__seeded").forEach(k=>localStorage.removeItem(k));
+    if(keep) localStorage.setItem(cfgKey,keep); }catch(_){}
+  const suf=LSP==="cgb."?"b":""; ["coachg"+suf,"coachg"+suf+"-outbox"].forEach(n=>{ try{ indexedDB.deleteDatabase(n); }catch(_){} });
+  try{ const ks=await caches.keys(); for(const k of ks) if(/^coachg/.test(k)&&!/fonts/.test(k)) await caches.delete(k); }catch(_){}
+  toast("All data deleted. Starting fresh…"); setTimeout(()=>location.reload(),900);
+}
 function friendConnCard(){
   const c=window.coach.cfg();
   return `<section class="card" id="conn"><h2>AI features (Claude)</h2>
@@ -4663,12 +4679,18 @@ renderSettings = function(){
   <section class="card"><h2>Step sizes</h2><p class="small muted">How much the weight changes per step.</p>
     <div class="exstep small muted"><span>Exercise</span><span style="text-align:center">Step kg</span><span style="text-align:center">Added kg</span></div>
     <div class="exsteps">${lifts.map(id=>`<div class="exstep"><span>${esc(EX[id].name)}</span><input type="number" inputmode="decimal" id="st-${id}" data-stepfor="${id}" data-f="step" value="${stepOf(id)}" aria-label="${esc(EX[id].name)} step">${EX[id].kind==="assisted"?`<input type="number" inputmode="decimal" id="as-${id}" data-stepfor="${id}" data-f="addStep" value="${addStepOf(id)}" aria-label="${esc(EX[id].name)} added step">`:"<span></span>"}</div>`).join("")}</div></section>`
-  + backupCard() + `<section class="card"><h2>About</h2><p class="small muted">Coach (guest edition) · version ${APP_VERSION}. Not medical advice. For anything health-related, check with your doctor.</p></section>`;
+  + backupCard() + resetCard() + `<section class="card"><h2>About</h2><p class="small muted">Coach (guest edition) · version ${APP_VERSION}. Not medical advice. For anything health-related, check with your doctor.</p></section>`;
 };
 $app.addEventListener("click",async e=>{
   const b=e.target.closest("[data-act]"); if(!b) return; const a=b.dataset.act;
   if(a==="gEditProfile"){ if(confirm("This rebuilds your meal plan, targets and workouts from your answers. Your logs are kept. Continue?")) obStart(true); }
   else if(a==="gTour") tourStart();
+  else if(a==="gReset"){
+    if(!confirm("Delete your profile and ALL your data from this phone? This can't be undone.")) return;
+    if(!confirm("Last check: everything goes, including logs and blood results. Delete now?")) return;
+    const hasKey=!!(window.coach.cfg().key); const rm=hasKey? confirm("Also remove your Claude key from this phone?\n\nOK = remove it\nCancel = keep it") : true;
+    wipeEverything(rm);
+  }
   else if(a==="gMeds") obStart(true,"meds");
   else if(a==="gAiSetup") obStart(true,"ai");
   else if(a==="gAiRemove"){ if(confirm("Remove the Claude key from this phone?")){ window.coach.setCfg({key:""}); sample=null; sampleImages=false; render(); toast("Key removed"); } }
