@@ -734,7 +734,7 @@ function equipmentCard(){
     <label class="field"><span>Note (optional: max weight, plates, quirks)</span><input type="text" id="eqnote" placeholder="optional" autocomplete="off"></label>
     <div class="row"><button class="btn" data-act="eqAdd">Add</button></div></section>`;
 }
-const APP_VERSION = "guest 1.3 BETA · 1 Oct 2026";
+const APP_VERSION = "guest 1.4 BETA · 1 Oct 2026";
 const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 /* ============================================================
    GUEST EDITION CORE (profile -> targets, starter plan, program, schedule)
@@ -4410,7 +4410,7 @@ function rebuildProgram(){
 
 /* ---------- setup wizard ---------- */
 const OB={open:false,i:0,d:null,ai:0,msg:"",ok:"",busy:false,tourSlide:0,edit:false};
-const OB_STEPS=["welcome","tour","about","goal","food","train","rhythm","work","meds","bloods","ai","build"];
+const OB_STEPS=["welcome","tour","about","goal","food","train","work","rhythm","meds","bloods","ai","build"];
 const DOWN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MED_PRESETS=[
  {k:"trt", label:"Testosterone", name:"Testosterone", freq:"weekly", days:[1], time:"08:00", notes:"Same time each cycle. If you inject, rotate sites.", dosePh:"e.g. 100 mg"},
@@ -4457,7 +4457,7 @@ function obStepHtml(id){
   if(id==="train") return {body:`<h2>Training</h2><div class="of"><span>Days per week</span>${chipRow("days",[[2,"2"],[3,"3"],[4,"4"],[5,"5"],[6,"6"]],true)}</div><div class="of"><span>Where do you train?</span>${chipRow("place",[["gym","A full gym"],["db","Home, dumbbells","bench if you have one"],["bw","Home, little equipment","bodyweight"]])}</div><div class="of"><span>Experience</span>${chipRow("exp",[["beginner","New to lifting"],["intermediate","1 to 3 years"],["advanced","3+ years"]])}</div>${otext("Injuries or things to avoid","injuries","e.g. sore lower back, bad left knee",true)}`};
   if(id==="work"){ const sp=(()=>{ const u=D.shiftPresets||{}; const o={}; for(const k of Object.keys(SHIFT_DEFAULTS)) o[k]={...SHIFT_DEFAULTS[k],...(u[k]||{})}; return o; })(); const on=D.shiftWork===true||D.shiftWork==="true";
     return {body:`<h2>Your working week</h2><p>Coach plans meals, water, sleep and workouts around work.</p><div class="of">${chipRow("shiftWork",[[false,"Regular hours","about the same every week"],[true,"Shifts or a rota","hours change week to week"]])}</div>${on?`<p>Your usual shift times. Each week you'll just tap Day, Evening, Night or Off, so you can change these any time.</p><div class="ob-card">${["day","evening","night"].map(k=>`<div style="margin-top:8px"><b>${SHIFT_DEFAULTS[k].label}</b><div class="ofi" style="margin-top:4px"><input type="time" data-wpre="${k}|s" value="${sp[k].s}"><span class="small muted">to</span><input type="time" data-wpre="${k}|e" value="${sp[k].e}"></div></div>`).join("")}</div><p class="small muted">After setup I'll ask for this week's hours.</p>`:""}`}; }
-  if(id==="rhythm") return {body:`<h2>Your day</h2><p>The daily guide is built around these times.</p><div class="sum">${`<label class="of"><span>Wake up</span><input type="time" data-f="wake" value="${D.wake}"></label><label class="of"><span>Lights out</span><input type="time" data-f="sleep" value="${D.sleep}"></label>`}</div><div class="of"><span>When do you usually train?</span>${chipRow("trainWhen",[["morning","Morning","before work"],["midday","Midday"],["evening","Evening","after work"]])}</div>`};
+  if(id==="rhythm") return {body:`<h2>${(D.shiftWork===true||D.shiftWork==="true")?"Your usual day":"Your day"}</h2><p>${(D.shiftWork===true||D.shiftWork==="true")?"On days you are not working a shift, or on a normal day shift, when do you wake and go to bed? Night shifts, early starts and sleeping after nights are worked out from your rota each week, so don't try to fit them in here.":"The daily guide is built around these times."}</p><div class="sum">${`<label class="of"><span>Wake up</span><input type="time" data-f="wake" value="${D.wake}"></label><label class="of"><span>Lights out</span><input type="time" data-f="sleep" value="${D.sleep}"></label>`}</div><div class="of"><span>When do you usually train?</span>${chipRow("trainWhen",[["morning","Morning","before work"],["midday","Midday"],["evening","Evening","after work"]])}</div>`};
   if(id==="meds"){
     const sel=new Set((D.meds||[]).map(m=>m.k));
     return {body:`<h2>Medication & supplements</h2><p>Tick anything you take and Coach adds it to your daily guide at the right time, then tracks whether you took it. You can skip this.</p><div class="chips">${MED_PRESETS.map(p=>`<button class="ch ${sel.has(p.k)||([...(D.meds||[])].some(m=>m.k===p.k))?"on":""}" data-med="${p.k}">${p.label}</button>`).join("")}</div>${(D.meds||[]).map(medCard).join("")}<div class="note">Coach only reminds and tracks. It never tells you what dose to take or whether to start or stop something. That's for you and your doctor.</div>`};
