@@ -333,6 +333,9 @@ body.ob-open{overflow:hidden}
 .tour .tip .tr button{border:0;border-radius:12px;padding:10px 16px;font-weight:600}
 .tour .tip .tn{background:var(--ink);color:#fff}.tour .tip .tb{background:var(--surface2)}.tour .tip .tx{background:none;color:var(--muted);padding:10px 4px}
 
+.k-work{background:var(--blue)}
+.ofi input[type=time]{min-width:0;flex:1;padding:10px 8px;font-size:16px}
+
 </style>
 
 <div class="wrap" id="app"></div>
@@ -687,7 +690,7 @@ const EQ_NEED = {
   calf:/calf|smith/i, seatedCalf:/calf/i, dbCalf:/dumbbell/i, pallof:/cable/i, deadbug:null, plank:null,
 };
 function swapId(id,s){ const t=s&&s.swaps&&s.swaps[id]; return t&&EX[t]?t:id; }
-function dayItems(date){ const s=S.sessions[date]; return DAYS[parseD(date).getDay()].items.map(id=>swapId(id,s)); }
+function dayItems(date){ const s=S.sessions[date]; return dayFor(date).items.map(id=>swapId(id,s)); }
 function eqTag(id){
   const list=S.settings.equipment||[]; if(!list.length) return "";
   const re=EQ_NEED[id]; if(re===null) return "No equipment needed";
@@ -731,7 +734,7 @@ function equipmentCard(){
     <label class="field"><span>Note (optional: max weight, plates, quirks)</span><input type="text" id="eqnote" placeholder="optional" autocomplete="off"></label>
     <div class="row"><button class="btn" data-act="eqAdd">Add</button></div></section>`;
 }
-const APP_VERSION = "guest 1.2 BETA · 1 Oct 2026";
+const APP_VERSION = "guest 1.3 BETA · 1 Oct 2026";
 const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 /* ============================================================
    GUEST EDITION CORE (profile -> targets, starter plan, program, schedule)
@@ -740,7 +743,7 @@ const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const LSP="cgb.";
 const PROFILE_DEFAULT={name:"", sex:"male", age:30, heightCm:175, weightKg:80, goalKg:null, goal:"maintain", activity:1.45,
   diet:"omni", dairyFree:false, avoid:"", snack:true, days:3, place:"gym", exp:"beginner", injuries:"",
-  wake:"06:30", sleep:"22:30", trainWhen:"evening", meds:[], bloods:"later"};
+  wake:"06:30", sleep:"22:30", trainWhen:"evening", meds:[], bloods:"later", shiftWork:false};
 const DIET_LVL={vegan:0, veg:1, pesc:2, omni:3};
 const DIET_LABEL={omni:"Eats everything", pesc:"Pescatarian (fish and eggs, no meat)", veg:"Vegetarian (eggs and dairy, no meat or fish)", vegan:"Vegan"};
 const GOAL_LABEL={lose:"lose fat and keep muscle", build:"build muscle", maintain:"maintain weight and stay fit", recomp:"lose fat and build muscle together"};
@@ -2457,7 +2460,7 @@ async function flush(path, getData){
   }
   finally{ writing[path]=false; }
 }
-function saveSession(date){ const doc=S.sessions[date]; queueSave("sessions/"+date, ()=>({...S.sessions[date], day:DAYS[parseD(date).getDay()].key, updated:Date.now()})); }
+function saveSession(date){ const doc=S.sessions[date]; queueSave("sessions/"+date, ()=>({...S.sessions[date], day:dayFor(date).key, updated:Date.now()})); }
 function saveSettings(){ queueSave("app/settings", ()=>S.settings, 300); }
 function saveBw(date){ queueSave("bw/"+date, ()=>({kg:S.bw[date]}), 300); }
 function saveFood(date){ queueSave("food/"+date, ()=>({...S.food[date], updated:Date.now()}), 400); if(typeof scheduleReminderSync==="function") scheduleReminderSync(); }
@@ -2563,7 +2566,7 @@ function header(title, eyebrow){
 }
 function dayStatus(date){
   const s=S.sessions[date]; if(!s) return "";
-  const day=DAYS[parseD(date).getDay()];
+  const day=dayFor(date);
   let total=0, done=0;
   for (const id of dayItems(date)){ total++; if (itemDone(id,s)) done++; }
   return done===0?"":done>=total?"done":"part";
@@ -2576,14 +2579,14 @@ function itemDone(id,s){
 }
 
 function renderTrain(){
-  const date=S.date, d=parseD(date), dow=d.getDay(), day=DAYS[dow];
+  const date=S.date, d=parseD(date), dow=d.getDay(), day=dayFor(date);
   const monday = addDays(date, -((dow+6)%7));
   const today=todayStr();
   let strip="";
   for(let i=0;i<7;i++){
     const ds=addDays(monday,i), dd=parseD(ds), st=dayStatus(ds);
     strip+=`<button class="day ${ds===date?"sel":""}" data-date="${ds}" aria-label="${DOW[dd.getDay()]} ${dd.getDate()}${ds===today?" (today)":""}">
-      <span class="d">${ds===today?"Today":DOW[dd.getDay()]}</span><span class="n">${dd.getDate()}</span><span class="t">${esc(DAYS[dd.getDay()].short)}</span><span class="m ${st}"></span></button>`;
+      <span class="d">${ds===today?"Today":DOW[dd.getDay()]}</span><span class="n">${dd.getDate()}</span><span class="t">${esc(dayFor(ds).short)}</span><span class="m ${st}"></span></button>`;
   }
   const s=sessionFor(date);
   const dateTxt=d.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"});
@@ -2993,7 +2996,7 @@ function weekStrip(date){
   for(let i=0;i<7;i++){
     const ds=addDays(monday,i), dd=parseD(ds), st=dayStatus(ds);
     strip+=`<button class="day ${ds===date?"sel":""}" data-date="${ds}" aria-label="${DOW[dd.getDay()]} ${dd.getDate()}${ds===today?" (today)":""}">
-      <span class="d">${ds===today?"Today":DOW[dd.getDay()]}</span><span class="n">${dd.getDate()}</span><span class="t">${esc(DAYS[dd.getDay()].short)}</span><span class="m ${st}"></span></button>`;
+      <span class="d">${ds===today?"Today":DOW[dd.getDay()]}</span><span class="n">${dd.getDate()}</span><span class="t">${esc(dayFor(ds).short)}</span><span class="m ${st}"></span></button>`;
   }
   return `<div class="weeknav"><button class="linkbtn" data-shift="-7">‹ Prev week</button>${date!==today?`<button class="linkbtn" data-date="${today}">Today</button>`:""}<button class="linkbtn" data-shift="7">Next week ›</button></div><div class="week">${strip}</div>`;
 }
@@ -3256,7 +3259,7 @@ function applyBusy(items, busy){
 }
 function nowIndex(items){ const n=new Date(), m=n.getHours()*60+n.getMinutes(); let idx=-1; items.forEach((it,i)=>{ if(tmin(it.t)<=m) idx=i; }); return idx; }
 function tlExtra(it, date, fd){
-  const dow=parseD(date).getDay(), day=DAYS[dow];
+  const dow=parseD(date).getDay(), day=dayFor(date);
   if(it.train){ const s=S.sessions[date]; const n=s?dayItems(date).filter(id=>itemDone(id,s)).length:0; return `<div class="tlx"><span class="pill ${n>=day.items.length?"ok":""}">${esc(day.title)} · ${n}/${day.items.length}</span><button class="btn sm" data-act="openTrain">Open workout</button></div>`; }
   if(it.slot){
     const eaten=fd.entries.filter(e=>e.slot===it.slot);
@@ -3300,8 +3303,8 @@ function renderToday(){
   // now / next
   if(ni>=0 || (date===today && items.length)){
     const cur=items[ni], nx=items.slice(ni+1).find(x=>!isDone(x,date));
-    html+=`<section class="card nowcard">${cur?`<div class="eyebrow">Now · ${hm(cur.t).t}${cur.end?"–"+hm(cur.end).t:""} ${hm(cur.t).ap}</div><div class="big">${esc(cur.train&&cur.title==="Train"?"Train: "+DAYS[d.getDay()].title:cur.title)}</div>${cur.detail?`<div class="small muted">${esc(cur.detail)}</div>`:""}${!isDone(cur,date)?`<div class="row"><button class="btn sm ok" data-act="tlDone" data-key="${esc(cur.key)}">Mark done</button><button class="linkbtn small" data-act="jumpNow">See in schedule ↓</button></div>`:`<span class="pill ok">✓ Done</span>`}`:`<div class="eyebrow">Before your day starts</div>`}
-      ${nx?`<div class="nx">Next at <b>${hm(nx.t).t} ${hm(nx.t).ap}</b>: ${esc(nx.train&&nx.title==="Train"?"Train: "+DAYS[d.getDay()].title:nx.title)}</div>`:""}</section>`;
+    html+=`<section class="card nowcard">${cur?`<div class="eyebrow">Now · ${hm(cur.t).t}${cur.end?"–"+hm(cur.end).t:""} ${hm(cur.t).ap}</div><div class="big">${esc(cur.train&&cur.title==="Train"?"Train: "+dayFor(date).title:cur.title)}</div>${cur.detail?`<div class="small muted">${esc(cur.detail)}</div>`:""}${!isDone(cur,date)?`<div class="row"><button class="btn sm ok" data-act="tlDone" data-key="${esc(cur.key)}">Mark done</button><button class="linkbtn small" data-act="jumpNow">See in schedule ↓</button></div>`:`<span class="pill ok">✓ Done</span>`}`:`<div class="eyebrow">Before your day starts</div>`}
+      ${nx?`<div class="nx">Next at <b>${hm(nx.t).t} ${hm(nx.t).ap}</b>: ${esc(nx.train&&nx.title==="Train"?"Train: "+dayFor(date).title:nx.title)}</div>`:""}</section>`;
   }
   // busy
   const bz=fd.busy||[];
@@ -3323,7 +3326,7 @@ function renderToday(){
     const done=isDone(it,date);
     const past = date<today || (date===today && i<ni);
     const t=hm(it.t);
-    const title = it.train && it.title==="Train" ? "Train: "+DAYS[d.getDay()].title : it.title;
+    const title = it.train && it.title==="Train" ? "Train: "+dayFor(date).title : it.title;
     const nav=navFor(it,date);
     html += `<div class="tl ${i===ni?"now":""} ${past&&i!==ni?"past":""} ${done?"done":""}" id="tl-${i}">
       <span class="tlc">${it.busy?"":`<input type="checkbox" id="tlc-${i}" data-tl="${esc(it.key)}" ${done?"checked":""} aria-label="Done: ${esc(title)}">`}</span>
@@ -3349,7 +3352,7 @@ function tickItem(key, checked){
 
 
 function workoutPrompt(date){
-  const s=sessionFor(date), day=DAYS[parseD(date).getDay()];
+  const s=sessionFor(date), day=dayFor(date);
   const lines=dayItems(date).map(id=>{ const ex=EX[id]; const sets=(s.sets?.[id]||[]).filter(x=>x&&x.r!=null&&x.r!==""); const n=(s.notes||{})[id];
     const setTxt = ex.kind==="routine" ? (itemDone(id,s)?"done":"not done") : ex.kind==="cardio" ? (s.cardio?.[id]?.min?`${s.cardio[id].min} min`:"not logged") : sets.length? sets.map(x=>`${x.l??""}${ex.kind==="reps"?"":"kg"}×${x.r}`).join(", ") : "not logged";
     const prev=history(id,date)[0]; const prevTxt=prev? ` | last time ${prev.date}: `+prev.sets.map(x=>`${x.l??""}×${x.r}`).join(", "):"";
@@ -3669,7 +3672,7 @@ Reply with only JSON totals like {"name":"short name","kcal":650,"p":35,"f":20,"
 /* ---------- coach ---------- */
 function daySummary(date){
   const t=totals(date), T=targetsFor(date), fd=S.food[date];
-  const s=S.sessions[date]; const day=DAYS[parseD(date).getDay()];
+  const s=S.sessions[date]; const day=dayFor(date);
   const wd = s ? dayItems(date).filter(id=>itemDone(id,s)).length : 0;
   const sch=scheduleFor(date); const sd=sch.filter(x=>isDone(x,date)).length; const sk=(fd?.entries||[]).filter(e=>e.src==="skip"&&e.skip!=="nothing"); const skipTxt=sk.length?`; skipped ${sk.length} meal${sk.length>1?"s":""} (${sk.map(e=>(SKIP_WHY[e.skip]||[0,"?"])[1]).join(", ")})`:"";
   return `${date} (${DOW[parseD(date).getDay()]}, ${isRest(date)?"light":"training"} day): ${t.kcal} kcal/${T.kcal}, P ${t.p}/${T.p} g, fibre ${t.fib}, Na ${t.na} mg, Fe ${t.fe} mg, veg ${t.veg}, fruit ${t.fruit}, C ${t.c}, F ${t.f}; schedule ${sd}/${sch.length} ticked${skipTxt}${fd?.bp?.s?`; BP ${fd.bp.s}/${fd.bp.d}`:""}; workout "${day.title}" ${wd}/${day.items.length} items; water ${fd?.water||0} L; appetite ${fd?.appetite??"-"}/5; energy ${fd?.energy??"-"}/5${fd?.note?`; note: ${fd.note}`:""}${S.bw[date]?`; weighed ${S.bw[date]} kg`:""}`;
@@ -3680,14 +3683,14 @@ function coachContext(date){
   const extras=fd.entries.filter(e=>!slotsFor(date).some(s=>s.slot===e.slot)).map(e=>`${e.name} (${Math.round(e.kcal)} kcal, P ${Math.round(e.p)})`).join(", ");
   const week=[]; for(let i=7;i>=1;i--){ const d=addDays(date,-i); if(S.food[d]||S.sessions[d]) week.push(daySummary(d)); }
   const bws=Object.keys(S.bw).sort().slice(-10).map(d=>`${d}: ${S.bw[d]}`).join(", ");
-  const day=DAYS[parseD(date).getDay()], s=S.sessions[date];
+  const day=dayFor(date), s=S.sessions[date];
   const wo = dayItems(date).map(id=>`${EX[id].name}${s&&itemDone(id,s)?" ✓":""}`).join(", ");
   const st=S.settings;
   const H=latestHealth();
   const bloods = H ? `BLOOD TEST ${H.date}: `+H.markers.map(m=>`${m.name} ${m.value}${m.unit?" "+m.unit:""}${m.flag?" ("+m.flag+")":""}`).join(", ")+"." : "";
   const sched=scheduleFor(date); const sdone=sched.filter(x=>isDone(x,date)).map(x=>x.title); const smiss=sched.filter(x=>!isDone(x,date) && tmin(x.t) < (new Date().getHours()*60+new Date().getMinutes())).map(x=>x.t+" "+x.title);
   const sp=S.settings.supps||{};
-  return `ATHLETE: ${athleteLine()} ${bloods} ${medsTxt()}
+  return `ATHLETE: ${athleteLine()} ${shiftTxt(date)} ${bloods} ${medsTxt()}
 BUSY TODAY: ${busyFor(date).map(b=>b.s+"–"+b.e+" "+(b.label||"busy")).join("; ")||"nothing extra"}.
 DAY SCHEDULE: done so far: ${sdone.join("; ")||"nothing ticked"}. Not ticked and already past: ${smiss.join("; ")||"none"}.
 MICROS LOGGED: sodium ${t.na} mg (max ${T.na||2000}), iron ${t.fe} mg (target ${T.fe||16}), veg ${t.veg} serves (target ${T.veg||6}), fruit ${t.fruit} (target ${T.fruit||2})${fd.bp?.s?`; BP ${fd.bp.s}/${fd.bp.d}`:""}.
@@ -4145,7 +4148,7 @@ function renderProgress(){
   const last7=nd.filter(d=>d>addDays(todayStr(),-7));
   const avg=k=>last7.length? Math.round(last7.reduce((a,d)=>a+totals(d)[k],0)/last7.length):0;
   const hitP=last7.filter(d=>totals(d).p>=targetsFor(d).p-10).length;
-  const nutRows=nd.slice().reverse().map(d=>{ const t=totals(d), T=targetsFor(d); const s=S.sessions[d]; const day=DAYS[parseD(d).getDay()]; const w=s?dayItems(d).filter(id=>itemDone(id,s)).length:0;
+  const nutRows=nd.slice().reverse().map(d=>{ const t=totals(d), T=targetsFor(d); const s=S.sessions[d]; const day=dayFor(d); const w=s?dayItems(d).filter(id=>itemDone(id,s)).length:0;
     return `<tr><td>${parseD(d).toLocaleDateString(undefined,{weekday:"short",day:"numeric"})}</td><td>${t.kcal}<div class="muted">/ ${T.kcal}</div></td><td class="${t.p>=T.p-10?"status up":""}">${t.p}</td><td>${t.fib}</td><td>${w}/${day.items.length}</td></tr>`; }).join("");
   const nutCard=`<section class="card"><div class="chead"><h2>Nutrition</h2><span class="rx">last 7 days</span></div>
     <div class="stat3"><div class="stat"><div class="l">Avg kcal</div><div class="v">${avg("kcal")||"–"}</div></div><div class="stat"><div class="l">Avg protein</div><div class="v">${avg("p")||"–"}</div></div><div class="stat"><div class="l">Protein days</div><div class="v">${hitP}/${last7.length||0}</div></div></div>
@@ -4233,7 +4236,7 @@ function remDesired(){
       const [y,mo,d]=date.split("-").map(Number); const [h,mi]=it.t.split(":").map(Number);
       const at=new Date(y,mo-1,d,h,mi).getTime(); if(at<now+60e3||at>horizon) continue;
       const id="c"+date.replace(/-/g,"")+"-"+hashId(it.key);
-      const title=(it.train&&it.title==="Train"?"Train: "+DAYS[parseD(date).getDay()].title:it.title);
+      const title=(it.train&&it.title==="Train"?"Train: "+dayFor(date).title:it.title);
       out[id]={at:Math.round(at/1000), title, body:String(it.detail||"").slice(0,300), tag:REM_TAG[it.k]||"bell", prio:it.k==="train"||it.k==="supp"?4:3};
     }
   }
@@ -4407,7 +4410,7 @@ function rebuildProgram(){
 
 /* ---------- setup wizard ---------- */
 const OB={open:false,i:0,d:null,ai:0,msg:"",ok:"",busy:false,tourSlide:0,edit:false};
-const OB_STEPS=["welcome","tour","about","goal","food","train","rhythm","meds","bloods","ai","build"];
+const OB_STEPS=["welcome","tour","about","goal","food","train","rhythm","work","meds","bloods","ai","build"];
 const DOWN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MED_PRESETS=[
  {k:"trt", label:"Testosterone", name:"Testosterone", freq:"weekly", days:[1], time:"08:00", notes:"Same time each cycle. If you inject, rotate sites.", dosePh:"e.g. 100 mg"},
@@ -4452,6 +4455,8 @@ function obStepHtml(id){
   if(id==="goal") return {body:`<h2>What's the goal?</h2><div class="of">${chipRow("goal",[["lose","Lose fat","keep muscle on"],["build","Build muscle","eat a little extra"],["recomp","Both","slow fat loss while training hard"],["maintain","Maintain","stay fit and steady"]])}</div>${D.goal==="lose"||D.goal==="recomp"?ofield("Goal weight (optional)","goalKg","kg"):""}<div class="of"><span>How active are you outside the gym?</span>${chipRow("activity",[[1.3,"Mostly sitting","desk job, little walking"],[1.45,"Some movement","on your feet a bit"],[1.6,"Very active","physical job or lots of walking"]],true)}</div>`};
   if(id==="food") return {body:`<h2>Food</h2><div class="of"><span>How do you eat?</span>${chipRow("diet",[["omni","Everything"],["pesc","Pescatarian","fish + eggs"],["veg","Vegetarian"],["vegan","Vegan"]])}</div><div class="of"><span>Dairy</span>${chipRow("dairyFree",[["false","Dairy is fine"],["true","No dairy"]])}</div>${otext("Foods you avoid, dislike or are allergic to","avoid","e.g. peanuts, mushrooms, shellfish",true)}<div class="of"><span>Meals per day</span>${chipRow("snack",[["false","3 meals"],["true","3 meals + a snack"]])}</div><p>Your first plan uses common foods. You can add your own foods, brands and barcodes any time.</p>`};
   if(id==="train") return {body:`<h2>Training</h2><div class="of"><span>Days per week</span>${chipRow("days",[[2,"2"],[3,"3"],[4,"4"],[5,"5"],[6,"6"]],true)}</div><div class="of"><span>Where do you train?</span>${chipRow("place",[["gym","A full gym"],["db","Home, dumbbells","bench if you have one"],["bw","Home, little equipment","bodyweight"]])}</div><div class="of"><span>Experience</span>${chipRow("exp",[["beginner","New to lifting"],["intermediate","1 to 3 years"],["advanced","3+ years"]])}</div>${otext("Injuries or things to avoid","injuries","e.g. sore lower back, bad left knee",true)}`};
+  if(id==="work"){ const sp=(()=>{ const u=D.shiftPresets||{}; const o={}; for(const k of Object.keys(SHIFT_DEFAULTS)) o[k]={...SHIFT_DEFAULTS[k],...(u[k]||{})}; return o; })(); const on=D.shiftWork===true||D.shiftWork==="true";
+    return {body:`<h2>Your working week</h2><p>Coach plans meals, water, sleep and workouts around work.</p><div class="of">${chipRow("shiftWork",[[false,"Regular hours","about the same every week"],[true,"Shifts or a rota","hours change week to week"]])}</div>${on?`<p>Your usual shift times. Each week you'll just tap Day, Evening, Night or Off, so you can change these any time.</p><div class="ob-card">${["day","evening","night"].map(k=>`<div style="margin-top:8px"><b>${SHIFT_DEFAULTS[k].label}</b><div class="ofi" style="margin-top:4px"><input type="time" data-wpre="${k}|s" value="${sp[k].s}"><span class="small muted">to</span><input type="time" data-wpre="${k}|e" value="${sp[k].e}"></div></div>`).join("")}</div><p class="small muted">After setup I'll ask for this week's hours.</p>`:""}`}; }
   if(id==="rhythm") return {body:`<h2>Your day</h2><p>The daily guide is built around these times.</p><div class="sum">${`<label class="of"><span>Wake up</span><input type="time" data-f="wake" value="${D.wake}"></label><label class="of"><span>Lights out</span><input type="time" data-f="sleep" value="${D.sleep}"></label>`}</div><div class="of"><span>When do you usually train?</span>${chipRow("trainWhen",[["morning","Morning","before work"],["midday","Midday"],["evening","Evening","after work"]])}</div>`};
   if(id==="meds"){
     const sel=new Set((D.meds||[]).map(m=>m.k));
@@ -4669,7 +4674,7 @@ renderSettings = function(){
     <div class="small">${esc(athleteLine())}</div><div class="small muted">${esc(dietRulesTxt())}</div>
     <div class="row"><button class="btn" data-act="gEditProfile">Update my profile and plan</button><button class="btn ghost" data-act="gTour">Replay the tour</button></div>
     <p class="small muted" style="margin:0">Updating rebuilds your meal plan, targets and workouts from your answers. Your logs are kept.</p></section>`
-  + friendConnCard() + medsCard() + targetsCard() + equipmentCard() + `
+  + friendConnCard() + medsCard() + shiftsCard() + targetsCard() + equipmentCard() + `
   <section class="card"><h2>Program</h2>
     <p class="small muted">Started ${parseD(ps).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}. In the first weeks one session hitting every rep target moves the weight up; after that it takes two in a row.</p>
     <div class="row"><label class="field"><span>Fast phase length (weeks)</span><input type="number" inputmode="numeric" id="fastw" value="${st.fastWeeks||4}"></label>
@@ -4872,6 +4877,226 @@ $app.addEventListener("click",async e=>{
   else if(a==="blAsk") blAsk();
 });
 $app.addEventListener("change",e=>{ const t=e.target; if(t.id==="blphoto"&&t.files&&t.files[0]){ const f=t.files[0]; t.value=""; blFromPhoto(f); } });
+
+/* ============================================================
+   GUEST EDITION: shift work
+   The user enters their hours week by week (Off / Day / Evening / Night / Custom). From that, every date in the
+   week gets its own day plan (S.food[date].dayplan: meal times, reminders, sleep, whether a workout fits) and its own
+   workout assignment (S.settings.trainMap[date] -> a key of DAYS). Dates without shifts keep the normal weekly plan.
+   Data: S.settings.shifts[date] = {t:"off"|"day"|"evening"|"night"|"custom", s, e};  S.settings.shiftWeeks[monday] = true
+   ============================================================ */
+const SHIFT_DEFAULTS={day:{s:"07:00",e:"17:00",label:"Day"},evening:{s:"13:00",e:"22:00",label:"Evening"},night:{s:"21:00",e:"08:00",label:"Night"}};
+function shiftPresets(){ const u=PF().shiftPresets||{}; const o={}; for(const k of Object.keys(SHIFT_DEFAULTS)) o[k]={...SHIFT_DEFAULTS[k],...(u[k]||{})}; return o; }
+function dayFor(date){ const k=(S.settings.trainMap||{})[date]; if(k){ const e=Object.values(DAYS).find(x=>x.key===k); if(e) return e; } return DAYS[parseD(date).getDay()]; }
+function mondayOf(date){ return addDays(date, -((parseD(date).getDay()+6)%7)); }
+function shiftOn(date){
+  const e=(S.settings.shifts||{})[date]; if(!e||e.t==="off") return null;
+  const p=shiftPresets()[e.t]; const s=e.s||(p&&p.s), en=e.e||(p&&p.e); if(!s||!en) return null;
+  return {t:e.t, s, e:en, label:e.t==="custom"?"Work":(p&&p.label)||"Shift", night: tmin(en)<=tmin(s)};
+}
+function shiftWorker(){ return !!PF().shiftWork; }
+const hrs=m=>{ const h=Math.round(m/6)/10; return (h%1===0?String(h|0):String(h))+" h"; };
+
+/* ---------- build one day around a shift ---------- */
+function shiftDay(date, train){
+  const P=PF(), dow=parseD(date).getDay();
+  const sh=shiftOn(date), prev=shiftOn(addDays(date,-1)), next=shiftOn(addDays(date,1));
+  const prevNight=!!(prev&&prev.night);
+  const W0=tmin(P.wake), Bed0=tmin(P.sleep);
+  const items=[], meals=[]; let trained=false, W=W0, why="", tAt=null;
+  const add=(t,k,title,detail,x)=>items.push({t:tstr(t),k,title,detail:detail||"",...(x||{})});
+  const meal=(t,title,detail)=>meals.push({t:Math.max(0,Math.min(1439,t)),title,detail:detail||""});
+  let Bed=Bed0;
+  if(next&&!next.night&&tmin(next.s)<8.5*60) Bed=Math.max(20*60+30, Math.min(Bed0, tmin(next.s)-100-450));
+  else if(next&&next.night) Bed=Math.min(23*60+59, Bed0+60);
+
+  if(prevNight){   // the end of last night's shift, then sleep
+    const e=tmin(prev.e);
+    add(0,"work",`Night shift, until ${prev.e}`,"The last stretch. Water and a protein snack beat another coffee.",{end:prev.e});
+    const lc=e-6*60; if(lc>=60) add(lc,"drink","Last coffee of the shift","After this, caffeine mostly costs you sleep.");
+    const nm=tmin(prev.s)+4*60-1440; if(nm>=15&&nm<e-90) meal(nm,"Night meal","Protein plus slow carbs: eggs on toast, a chicken wrap, yoghurt and fruit.");
+    meal(e+25,"Light meal before sleep","Something small with protein (eggs, yoghurt, banana and nuts). A big meal will keep you awake.");
+    const sl=e+60, wake=Math.min(sl+450, 17*60+30);
+    add(sl,"sleep","Sleep after your night shift","Dark room, phone away, earplugs or an eye mask. About 7 hours so tonight's sleep still works.",{end:tstr(wake)});
+    W=wake;
+  }
+
+  if(!sh){
+    if(!prevNight){   // an ordinary day off: the standard builder
+      const base=scheduleBuild(P, train?"train":"rest"); base.forEach(it=>items.push({...it})); trained=!!train; if(!train) why="rest day";
+      if(Bed!==Bed0) items.forEach(it=>{ if(it.k==="sleep") it.t=tstr(it.title==="Wind down"?Bed-60:Bed); });
+    }else{
+      why="recovering from nights";
+      meal(W+30,"First proper meal","Your main meal of the day. Protein first.");
+      meal(Math.min(Math.max(W+270,18*60+30),Bed-120),"Dinner","Keep it normal-sized so you can sleep tonight.");
+      add(Math.min(W+330,Bed-90),"move","Easy walk, 20 min","Daylight and a walk help reset your body clock.",{end:tstr(Math.min(W+350,Bed-70))});
+      add(Bed-60,"sleep","Wind down","Early to bed tonight gets you back on track."); add(Bed,"sleep","Lights out","");
+      items.push({t:tstr(W),k:"wake",title:"Wake up + 500 ml water",detail:"",water:0.5});
+    }
+  }else if(!sh.night){
+    const ws=tmin(sh.s), we=tmin(sh.e), len=we-ws;
+    if(!prevNight) W=Math.min(W0, Math.max(4*60+30, ws-100));
+    if(!prevNight){ add(W,"wake","Wake up + 500 ml water","A glass of water before anything else.",{water:0.5}); add(W+2,"weigh","Weigh-in","After the toilet, before food or drink. Mon, Wed, Fri.",{days:[1,3,5]}); }
+    add(ws,"work",`${sh.label} shift`,`${sh.s} to ${sh.e} (${hrs(len)})`,{end:sh.e});
+    const preGap=ws-(W+30), postStart=we+40, postOK=we<=18*60+30&&len<=10.5*60&&Bed-(postStart+75)>=150;
+    if(train){
+      const preOK=preGap>=5*60&&!prevNight;
+      if(preOK&&(P.trainWhen==="morning"||!postOK)) tAt=W+30; else if(postOK) tAt=postStart; else if(preOK) tAt=W+30;
+      if(tAt!=null){ add(tAt,"train","Train","",{train:true,end:tstr(tAt+60)}); trained=true; } else why=len>10.5*60?"long shift":"no free window";
+    } else why="rest day";
+    if(preGap>=5*60){
+      const m1=(tAt!=null&&tAt<ws)?tAt+75:W+45; meal(m1,"Breakfast","");
+      if(ws-90>=m1+150) meal(ws-90,"Meal before shift","Protein and slow carbs so you're not running on empty at 10 am.");
+    }else meal(Math.max(W+25,ws-70),"Breakfast before shift","Eat something even if you're not hungry.");
+    if(len>=6*60) meal(ws+Math.round(len*0.5/15)*15,"Meal on shift","Pack it the night before so a busy shift can't make you skip it.");
+    if(len>=10*60) meal(ws+Math.round(len*0.8/15)*15,"Snack on shift","Protein and fruit: yoghurt, a protein bar, nuts and a banana.");
+    if(we<=23*60){ const pm=Math.max(we+(len>=9*60?30:45), (tAt!=null&&tAt>ws)?tAt+80:0); meal(pm, we>21*60?"Late dinner, keep it light":"Dinner", we>21*60?"Protein-led and not too big, so you can sleep.":"") ; }
+    if(len>=5*60) add(ws+180,"water","Refill your bottle (500 ml)","Keep it where you can see it.",{water:0.5});
+    if(len>=8*60) add(ws+360,"water","Refill your bottle (500 ml)","",{water:0.5});
+    const afterEnd=Math.max(we,(tAt!=null&&tAt>ws)?tAt+60:0);
+    if(afterEnd+120<=Bed-90) add(afterEnd+120,"move","Evening stretch, 10 min","Loosen up hips, back and shoulders.");
+    add(Math.max(we+45,Bed-60),"sleep","Wind down","Dim the lights and put the phone away from the bed."); add(Math.max(Bed,we+105),"sleep","Lights out","Sleep is when training turns into muscle.");
+  }else{   // a night shift that starts today
+    const ws=tmin(sh.s);
+    if(!prevNight){ add(W,"wake","Wake up + 500 ml water","A glass of water before anything else.",{water:0.5}); add(W+2,"weigh","Weigh-in","After the toilet, before food or drink. Mon, Wed, Fri.",{days:[1,3,5]}); }
+    why="night shift tonight";
+    const nap=ws-5*60;
+    if(nap>=W+240) add(nap,"sleep","Nap before your night shift (90 min)","Dark room, alarm set. Even 90 minutes helps a lot.",{end:tstr(nap+90)});
+    meal(W+45,"Breakfast","");
+    const lunch=Math.min(12*60+30, nap-90); if(lunch>=W+45+150) meal(lunch,"Lunch","");
+    meal(ws-90,"Meal before shift","Protein and slow carbs. This is your 'dinner'.");
+    const os=ws+4*60; if(os<=23*60+30) meal(os,"Meal on shift","Pack it before you leave: protein plus slow carbs, nothing heavy or greasy.");
+    add(ws,"work",`Night shift, ${sh.s} to ${sh.e}`,`Runs into tomorrow morning (${hrs((tmin(sh.e)+1440)-ws)}).`,{end:"23:59"});
+    if(ws+120<1440) add(ws+120,"water","Refill your bottle (500 ml)","Water through the shift. Stop caffeine about 6 hours before it ends.",{water:0.5});
+  }
+
+  // meals -> slots (the standard builder already tagged its own)
+  if(!items.some(i=>i.slot)&&meals.length){
+    meals.sort((a,b)=>a.t-b.t); const mm=meals.length>4?meals.filter(m=>!/Snack on shift/.test(m.title)).slice(0,4):meals;
+    const names={1:["dinner"],2:["breakfast","dinner"],3:["breakfast","lunch","dinner"],4:["breakfast","lunch","snack","dinner"]}[mm.length];
+    mm.forEach((m,i)=>items.push({t:tstr(m.t),k:"meal",slot:names[i],title:m.title,detail:m.detail}));
+  }
+  items.sort((a,b)=>tmin(a.t)-tmin(b.t));
+  const base=(S.plan.days||{})[String(dow)]||[]; const optsFor=sl=>((base.find(x=>x.slot===sl)||base.find(x=>x.slot==="lunch")||base[0]||{}).opts)||[];
+  const slots=items.filter(i=>i.slot).map(i=>({label:i.title,opts:optsFor(i.slot),slot:i.slot,time:i.t}));
+  const parts=[]; if(sh) parts.push(`${sh.label} shift ${sh.s} to ${sh.e}.`); else if(prevNight) parts.push("You're coming off a night shift."); else parts.push("No shift.");
+  parts.push(trained?"Your workout is "+(tAt!=null&&sh&&tAt<tmin(sh.s)?"before":"after")+" work.":(why?("No workout: "+why+"."):""));
+  return {items, slots, rest:!trained, trained, note:parts.join(" ").trim(), dow};
+}
+
+/* ---------- plan a whole week ---------- */
+const daysBetweenD=(a,b)=>Math.round((parseD(b)-parseD(a))/86400000);
+function planShiftWeek(mon){
+  const P=PF(), today=todayStr();
+  const dates=Array.from({length:7},(_,i)=>addDays(mon,i)).filter(d=>d>=today); if(!dates.length) return;
+  const want=Math.max(1,Math.min(6,Number(P.days)||3)); let n=Math.round(want*dates.length/7); if(dates.length>=3) n=Math.max(1,n);
+  const cand=dates.filter(d=>shiftDay(d,true).trained).map(d=>({d,sc:shiftOn(d)?2:3}));
+  const chosen=[]; const adj=d=>chosen.some(c=>Math.abs(daysBetweenD(c,d))===1);
+  const run3=d=>{ const has=x=>chosen.includes(addDays(d,x)); return (has(-1)&&has(-2))||(has(-1)&&has(1))||(has(1)&&has(2)); };
+  const pass=strict=>{ for(const c of cand.slice().sort((a,b)=>b.sc-a.sc||a.d.localeCompare(b.d))){ if(chosen.length>=n) break; if(chosen.includes(c.d)) continue; if(strict&&adj(c.d)) continue; if(run3(c.d)) continue; chosen.push(c.d); } };
+  pass(n<=3); pass(false); chosen.sort();
+  S.settings.trainMap=S.settings.trainMap||{};
+  for(const d of dates){
+    const idx=chosen.indexOf(d); S.settings.trainMap[d]=idx>=0?"w"+idx:"light";
+    const r=shiftDay(d, idx>=0); const fd=foodDay(d);
+    fd.dayplan={title:"Your day around work", note:r.note, pick:"shift", variants:[{id:"shift",label:"Shift day",rest:r.rest,slots:r.slots,items:r.items}]};
+    saveFood(d);
+  }
+  S.settings.shiftWeeks=S.settings.shiftWeeks||{}; S.settings.shiftWeeks[mon]=true;
+  saveSettings(); cacheAll();
+}
+function reapplyShifts(){ if(!shiftWorker()) return; Object.keys(S.settings.shiftWeeks||{}).forEach(m=>planShiftWeek(m)); }
+function clearShiftPlans(){
+  const today=todayStr();
+  for(const d of Object.keys(S.food||{})){ if(d>=today&&S.food[d].dayplan&&S.food[d].dayplan.pick==="shift"){ delete S.food[d].dayplan; saveFood(d); } }
+  for(const d of Object.keys(S.settings.trainMap||{})) if(d>=today) delete S.settings.trainMap[d];
+  S.settings.shiftWeeks={}; saveSettings(); cacheAll();
+}
+function shiftTxt(date){
+  if(!shiftWorker()) return "";
+  const out=[]; for(let i=0;i<7;i++){ const d=addDays(date,i), s=shiftOn(d); const lab=parseD(d).toLocaleDateString(undefined,{weekday:"short",day:"numeric"}); out.push(s?`${lab} ${s.label} shift ${s.s}-${s.e}`:`${lab} off`); }
+  return `WORKS ROTATING SHIFTS (plan food, sleep and training around them; shift days are the hard ones): ${out.join("; ")}.`;
+}
+
+/* ---------- week planner (full-screen sheet) ---------- */
+const SH={open:false,mon:null,rows:{},pre:null,msg:""};
+function shLoad(){ SH.rows={}; for(let i=0;i<7;i++){ const d=addDays(SH.mon,i), e=(S.settings.shifts||{})[d]; SH.rows[d]=e?{...e}:{t:"off"}; } SH.pre=JSON.parse(JSON.stringify(shiftPresets())); }
+function shOpen(mon){ SH.open=true; SH.mon=mon||mondayOf(todayStr()); SH.msg=""; shLoad(); shRender(); }
+function shClose(){ SH.open=false; const el=document.getElementById("sh"); if(el) el.hidden=true; document.body.classList.remove("ob-open"); }
+function shRowTimes(r){ if(r.t==="off") return ""; const p=SH.pre[r.t]; const s=r.s||(p&&p.s)||"", e=r.e||(p&&p.e)||""; return s&&e?`${s} to ${e}`:""; }
+function shRender(){
+  let el=document.getElementById("sh");
+  if(!el){ document.body.insertAdjacentHTML("beforeend",'<div class="ob" id="sh" role="dialog" aria-modal="true" aria-label="Your work hours"></div>'); el=document.getElementById("sh"); wireSh(el); }
+  const today=todayStr(); const monLab=parseD(SH.mon).toLocaleDateString(undefined,{day:"numeric",month:"short"});
+  const rows=Object.keys(SH.rows).map(d=>{ const r=SH.rows[d]; const dl=parseD(d).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});
+    const chip=(t,l)=>`<button class="ch ${r.t===t?"on":""}" data-shset="${d}|${t}" style="padding:9px 12px">${l}</button>`;
+    return `<div class="ob-card" style="padding:12px${d<today?";opacity:.55":""}"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>${dl}</b><span class="small muted">${esc(shRowTimes(r))}</span></div>
+      <div class="chips" style="margin-top:8px">${chip("off","Off")}${chip("day","Day")}${chip("evening","Evening")}${chip("night","Night")}${chip("custom","Other")}</div>
+      ${r.t==="custom"?`<div class="ofi" style="margin-top:8px"><input type="time" data-shin="${d}|s" value="${esc(r.s||"08:00")}" aria-label="Start"><span class="small muted">to</span><input type="time" data-shin="${d}|e" value="${esc(r.e||"16:00")}" aria-label="End"></div>`:""}</div>`; }).join("");
+  const pre=["day","evening","night"].map(k=>`<div style="margin-top:8px"><b>${SHIFT_DEFAULTS[k].label}</b><div class="ofi" style="margin-top:4px"><input type="time" data-shpre="${k}|s" value="${esc(SH.pre[k].s)}" aria-label="${k} start"><span class="small muted">to</span><input type="time" data-shpre="${k}|e" value="${esc(SH.pre[k].e)}" aria-label="${k} end"></div></div>`).join("");
+  el.innerHTML=`<div class="ob-top"><button class="ob-back" id="shCancel">‹ Close</button><b style="flex:1;text-align:center">Your work hours</b><span style="width:56px"></span></div>
+  <div class="ob-body" id="shBody">
+   <div style="display:flex;align-items:center;justify-content:space-between"><button class="btn ghost sm" data-shweek="-7">‹ Earlier</button><b>Week of ${monLab}</b><button class="btn ghost sm" data-shweek="7">Later ›</button></div>
+   <p class="small muted">Tap what you're working each day. Coach rebuilds your meals, water, sleep and workouts around it, and drops the workout on days it doesn't fit. Moving to another week saves this one.</p>
+   ${rows}
+   <button class="btn ghost" data-shcopy="1">Copy from the week before</button>
+   <details><summary class="small">My usual shift times</summary><p class="small muted">Day, Evening and Night use these. Change them to match your rota.</p>${pre}</details>
+   <div class="small" style="color:var(--red)">${esc(SH.msg||"")}</div>
+  </div>
+  <div class="ob-foot"><button class="btn" id="shSave">Save and plan my week</button></div>`;
+  el.hidden=false; document.body.classList.add("ob-open");
+}
+function shCommit(){
+  S.settings.shifts=S.settings.shifts||{};
+  const P={...PF(), shiftWork:true, shiftPresets:SH.pre}; S.settings.profile=P;
+  for(const [d,r] of Object.entries(SH.rows)){ if(r.t==="off") delete S.settings.shifts[d]; else S.settings.shifts[d]=r.t==="custom"?{t:"custom",s:r.s||"08:00",e:r.e||"16:00"}:{t:r.t}; }
+  planShiftWeek(SH.mon);
+}
+function wireSh(el){
+  el.addEventListener("click",e=>{
+    const t=e.target.closest("button"); if(!t) return; const y=document.getElementById("shBody")?.scrollTop||0; const back=()=>{ const b=document.getElementById("shBody"); if(b) b.scrollTop=y; };
+    if(t.id==="shCancel"){ shClose(); return; }
+    if(t.dataset.shset){ const [d,k]=t.dataset.shset.split("|"); SH.rows[d]={t:k,...(k==="custom"?{s:(SH.rows[d].s||"08:00"),e:(SH.rows[d].e||"16:00")}:{})}; shRender(); back(); return; }
+    if(t.dataset.shweek){ shCommit(); SH.mon=addDays(SH.mon,Number(t.dataset.shweek)); shLoad(); shRender(); return; }
+    if(t.dataset.shcopy){ for(const d of Object.keys(SH.rows)){ const p=(S.settings.shifts||{})[addDays(d,-7)]; SH.rows[d]=p?{...p}:{t:"off"}; } shRender(); back(); return; }
+    if(t.id==="shSave"){ shCommit(); shClose(); render(); toast("Week planned"); return; }
+  });
+  el.addEventListener("input",e=>{ const t=e.target;
+    if(t.dataset.shin){ const [d,f]=t.dataset.shin.split("|"); SH.rows[d][f]=t.value; const lab=t.closest(".ob-card").querySelector(".small.muted"); if(lab) lab.textContent=shRowTimes(SH.rows[d]); }
+    if(t.dataset.shpre){ const [k,f]=t.dataset.shpre.split("|"); SH.pre[k][f]=t.value; }
+  });
+}
+
+/* ---------- settings card + Today nudge ---------- */
+function shiftsCard(){
+  const P=PF();
+  if(!P.shiftWork) return `<section class="card" id="shiftcard"><div class="chead"><h2>Work shifts</h2></div>
+    <p class="small muted" style="margin:0">If your hours change week to week (a rota, nights, on-call), tell Coach each week and it builds your meals, water, sleep and workouts around your shifts.</p>
+    <div class="row"><button class="btn" data-act="shOn">I work shifts</button></div></section>`;
+  const today=todayStr(); const rows=Array.from({length:7},(_,i)=>addDays(today,i)).map(d=>{ const s=shiftOn(d); const tr=(S.settings.trainMap||{})[d]; const lab=parseD(d).toLocaleDateString(undefined,{weekday:"short",day:"numeric"});
+    return `<div class="hm"><span>${esc(lab)}</span><span class="v small">${s?esc(s.label+" "+s.s+" to "+s.e):"Off"}${tr&&tr!=="light"?" · workout":""}</span></div>`; }).join("");
+  return `<section class="card" id="shiftcard"><div class="chead"><h2>Work shifts</h2></div>${rows}
+    <div class="row"><button class="btn" data-act="shOpen" data-mon="${mondayOf(today)}">Plan this week</button><button class="btn ghost" data-act="shOpen" data-mon="${addDays(mondayOf(today),7)}">Plan next week</button></div>
+    <div class="row"><button class="linkbtn small" data-act="shOff">I don't work shifts any more</button></div>
+    <p class="small muted" style="margin:0">Days you haven't entered keep your normal weekly plan.</p></section>`;
+}
+function shiftNudge(){
+  if(!shiftWorker()) return ""; const today=todayStr(), m0=mondayOf(today), m1=addDays(m0,7), dow=parseD(today).getDay(); const W=S.settings.shiftWeeks||{};
+  let mon=null, msg="";
+  if(!W[m0]){ mon=m0; msg="What are your hours this week? Your meals, sleep and workouts are built around them."; }
+  else if(!W[m1]&&(dow===0||dow>=4)){ mon=m1; msg="Next week's rota usually lands about now. Enter your hours and Coach will plan it."; }
+  if(!mon) return "";
+  return `<section class="card" id="shiftnudge" style="border:1.5px solid var(--blue)"><div class="chead"><h2>${mon===m0?"Plan your week":"Plan next week"}</h2></div><p class="small" style="margin:0">${msg}</p><div class="row"><button class="btn" data-act="shOpen" data-mon="${mon}">Enter my hours</button></div></section>`;
+}
+{ const _rt=renderToday; renderToday=function(){ _rt(); const n=shiftNudge(); if(n){ const first=$app.querySelector("section.card"); if(first) first.insertAdjacentHTML("beforebegin",n); } }; }
+{ const _ap=applyProfile; applyProfile=async function(P){ await _ap(P); reapplyShifts(); }; }
+$app.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]"); if(!b) return; const a=b.dataset.act;
+  if(a==="shOpen") shOpen(b.dataset.mon);
+  else if(a==="shOn"){ S.settings.profile={...PF(),shiftWork:true}; saveSettings(); cacheAll(); shOpen(); }
+  else if(a==="shOff"){ if(!confirm("Go back to your normal weekly plan? Your shift hours for the coming days are cleared.")) return; S.settings.profile={...PF(),shiftWork:false}; clearShiftPlans(); render(); toast("Back to the normal plan"); }
+});
+document.addEventListener("input",e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.wpre&&OB&&OB.d){ const [k,f]=t.dataset.wpre.split("|"); OB.d.shiftPresets=OB.d.shiftPresets||{}; OB.d.shiftPresets[k]={...(OB.d.shiftPresets[k]||SHIFT_DEFAULTS[k]),[f]:t.value}; } });
 
 friendInit(); rebuildProgram();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
